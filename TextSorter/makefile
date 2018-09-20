@@ -5,3 +5,5 @@ main.o: main.cpp
 		g++ main.cpp -c
 Comparator.o: Comparator.cpp
 		g++ Comparator.cpp -c
+Text.o: Text.cpp
+		g++ Text.cpp -c

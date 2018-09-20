@@ -1,28 +1,7 @@
 /**
  * @file
  */
-
-#include <stdio.h>
-
-/**
- * @brief read text from file
- * @param path path to the file
- * @param buffer buffer to fill with the text
- * @param size amount symbols to read
- */
-void getTextFromFile(char* path, char* buffer, size_t size) {
-  FILE *fd = fopen(path, "r");
-  if (fd == NULL) {
-    std::cerr << "file descriptor is NULL\n";
-  }
-
-  size_t symbolCount;
-  if (symbolCount = fread(buffer, 1, size, fd) != size) {
-    std::cerr << "read not enough bytes: read " << symbolCount << " symbols, expected " << size << "\n";
-  }
-  fclose(fd);
-}
-
+#pragma once
 
 /**
  *

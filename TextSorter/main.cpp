@@ -1,56 +1,41 @@
 #include <iostream>
 #include <fstream>
-#include <sys/stat.h>
 #include <algorithm>
+#include <cstring>
 #include "Comparator.h"
 #include "TextTools.h"
-
-void readFile (char* path, char* text, size_t size) {
-  FILE *fd = fopen(path, "r");
-  if (fd == NULL) {
-    std::cerr << "file descriptor is NULL\n";
-  }
-
-  size_t symbolCount;
-  if (symbolCount = fread(text, 1, size, fd) != size) {
-    std::cerr << "read not enough bytes: read " << symbolCount << " symbols, expected " << size << "\n";
-  }
-  fclose(fd);
-
-}
+#include "FileTools.h"
 
 int main() {
   char path[] = "text.txt";
-  struct stat st;
 
-  if (stat(path, &st) == -1) {
-    std::cerr << "No file\n";
-    return -1;
-  }
+  size_t size = getFileSize(path);
+  char *text = new char[size + 1];
 
-  char *text = new char[st.st_size + 1];
+  readFile(path, text, size);
+  text[size + 1] = '\n';
 
-  readFile(path, text, st.st_size);
-
-  text[st.st_size + 1] = '\n';
-
-  int lineCount = countLinesAndModify(text, st.st_size + 1);
+  int lineCount = countLinesAndModify(text, size + 1);
+  char **originLinesOfText = new char *[lineCount];
   char **linesOfText = new char *[lineCount];
-  setLines(text, linesOfText, st.st_size + 1);
+  setLines(text, linesOfText, size + 1);
+  for (int i = 0; i < lineCount; ++i) {
+    originLinesOfText[i] = linesOfText[i];
+  }
 
   std::ofstream fSorted("sorted.txt");
   std::ofstream fRevSorted("revSorted.txt");
+  std::ofstream fOrigin("origin.txt");
 
   std::sort(linesOfText, linesOfText + lineCount, LexicographicalOrderComparator());
-  for (int i = 0; i < lineCount; ++i) {
-    fSorted << linesOfText[i] << "\n";
-  }
+  printToFile(linesOfText, lineCount, fSorted);
 
   std::sort(linesOfText, linesOfText + lineCount, ReversedLexicographicalOrderComparator());
-  for (int i = 0; i < lineCount; ++i) {
-    fRevSorted << linesOfText[i] << "\n";
-  }
+  printToFile(linesOfText, lineCount, fRevSorted);
 
+  printToFile(linesOfText, lineCount, fOrigin);
 
+  delete[] text;
+  delete[] linesOfText;
   return 0;
 }
