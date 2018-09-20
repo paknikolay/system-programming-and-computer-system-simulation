@@ -1,4 +1,5 @@
 #include "LinearEqSolver.h"
+#include "CompareTools.h"
 
 //#define TestMode 1
 
@@ -21,12 +22,12 @@ EqSolver::Roots EqSolver::solveLinearEq(const double &a, const double &b) {
 using std::cout;
 
   int main(){
-    assert(EqSolver::solveLinearEq(1,1).GetRoots()[0] == -1);
+    assert(EqSolver::isEq(EqSolver::solveLinearEq(1,1).GetRoots()[0],-1));
     assert(!EqSolver::solveLinearEq(0,0).isFiniteAmountOfRoots());
     assert(EqSolver::solveLinearEq(0,0).getRootCount() == -1);
     assert(EqSolver::solveLinearEq(0,1).isFiniteAmountOfRoots());
     assert(EqSolver::solveLinearEq(0,1).getRootCount() == 0);
-    assert(EqSolver::solveLinearEq(5,2).GetRoots()[0] == -0.4);
+    assert(EqSolver::isEq(EqSolver::solveLinearEq(5,2).GetRoots()[0], -0.4));
   }
 
 #endif

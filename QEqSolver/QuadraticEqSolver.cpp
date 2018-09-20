@@ -1,12 +1,13 @@
 #include "QuadraticEqSolver.h"
 #include "LinearEqSolver.h"
+#include "CompareTools.h"
 
 #include <cmath>
 
-//#define TestMode 1
+#define TestMode 1
 
 EqSolver::Roots EqSolver::solveQuadraticEq(const double &a, const double &b, const double &c) {
-  if (a == 0) {
+  if (std::abs(a) < eps) {
     return solveLinearEq(b, c);
   }
 
@@ -34,24 +35,24 @@ using std::cout;
 
 int main(){
   //проверка линейных уравнений
-  assert(EqSolver::solveQuadraticEq(0,1,1).GetRoots()[0] == -1);
+  assert(EqSolver::isEq(EqSolver::solveQuadraticEq(0,1,1).GetRoots()[0], -1));
   assert(!EqSolver::solveQuadraticEq(0,0,0).isFiniteAmountOfRoots());
   assert(EqSolver::solveQuadraticEq(0,0,0).getRootCount() == -1);
   assert(EqSolver::solveQuadraticEq(0,0,1).isFiniteAmountOfRoots());
   assert(EqSolver::solveQuadraticEq(0,0,1).getRootCount() == 0);
-  assert(EqSolver::solveQuadraticEq(0,5,2).GetRoots()[0] == -0.4);
+  assert(EqSolver::isEq(EqSolver::solveQuadraticEq(0,5,2).GetRoots()[0], -0.4));
 
   //проверка квадратных уравнений
   assert(EqSolver::solveQuadraticEq(1,2,1).getRootCount() == 2);
-  assert(EqSolver::solveQuadraticEq(1,2,1).GetRoots()[0] == -1);
-  assert(EqSolver::solveQuadraticEq(1,2,1).GetRoots()[1] == -1);
+  assert(EqSolver::isEq(EqSolver::solveQuadraticEq(1,2,1).GetRoots()[0], -1));
+  assert(EqSolver::isEq(EqSolver::solveQuadraticEq(1,2,1).GetRoots()[1], -1));
 
   assert(EqSolver::solveQuadraticEq(1,-9,20).getRootCount() == 2);
-  assert(EqSolver::solveQuadraticEq(1,-9,20).GetRoots()[0] == 4);
-  assert(EqSolver::solveQuadraticEq(1,-9,20).GetRoots()[1] == 5);
+  assert(EqSolver::isEq(EqSolver::solveQuadraticEq(1,-9,20).GetRoots()[0], 4));
+  assert(EqSolver::isEq(EqSolver::solveQuadraticEq(1,-9,20).GetRoots()[1], 5));
 
   assert(EqSolver::solveQuadraticEq(1,2,5).getRootCount() == 0);
-  assert(EqSolver::solveQuadraticEq(1,2,5).isFiniteAmountOfRoots() == true);
+  assert(EqSolver::solveQuadraticEq(1,2,5).isFiniteAmountOfRoots());
 }
 
 #endif

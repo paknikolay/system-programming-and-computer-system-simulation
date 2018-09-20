@@ -1,13 +1,13 @@
 #pragma once
 
 #include <vector>
+#include <cmath>
 
 /**
  * @namespace EQSolver
  * @brief namespace содержащий функции и классы для решения уравнений
  */
 namespace EqSolver {
-
    /**
        @brief Класс для хранения решений уравнений
    */
