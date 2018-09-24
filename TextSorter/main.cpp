@@ -2,6 +2,7 @@
 #include <fstream>
 #include <algorithm>
 #include <cstring>
+
 #include "Comparator.h"
 #include "TextTools.h"
 #include "FileTools.h"
