@@ -34,6 +34,8 @@ EqSolver::Roots EqSolver::solveQuadraticEq(const double &a, const double &b, con
 using std::cout;
 
 int main(){
+  //Overall, its ok, but don't see any parsing here, the point is that it is the main neckpain here,
+  //file structured, let's go with 8
   //проверка линейных уравнений
   assert(EqSolver::isEq(EqSolver::solveQuadraticEq(0,1,1).GetRoots()[0], -1));
   assert(!EqSolver::solveQuadraticEq(0,0,0).isFiniteAmountOfRoots());
