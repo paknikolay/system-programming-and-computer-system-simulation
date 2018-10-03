@@ -11,21 +11,23 @@
  */
 template <typename T>
 struct StackData {
-#ifdef secureMode
-  unsigned int canary1{0xBEDABEDA};
-#endif
+  #ifdef secureMode
+    unsigned int canary1{0xBEDABEDA};
+  #endif
 
   T *buffer;
   int nextPosToWrite{0};
   int size{1};
 
-#ifdef secureMode
-  T *copy;
+  #ifdef secureMode
+    T *copy;
     char *bufferFull;
     char *copyFull;
-    long long checkSum{7};
+    size_t checkSum{7};
+    int nextPosToWriteCopy{0};
+    int sizeCopy{1};
     unsigned int canary2{0xDEADBEEF};
-#endif
+  #endif
 };
 
 /**
@@ -34,48 +36,55 @@ struct StackData {
 #ifdef secureMode
   enum class Errors {
     ok, emptyStack, wrongCheckSum, wrongCanaryStackData1, wrongCanaryStackData2,
-    wrongCanaryBuff1, wrongCanaryBuff2, unequalBufferAndCopy, wrongCanaryCopy1, wrongCanaryCopy2
+    wrongCanaryBuff1, wrongCanaryBuff2, unequalBufferAndCopy, wrongCanaryCopy1, wrongCanaryCopy2,
+    notEqualCopiesOfRealSize, notEqualCopiesOfSize
 };
 
-  /**
-   * @brief выводит ошибку error в out
-   */
-  std::ostream& operator<<(std::ostream& out, const Errors& error) {
-    switch (error) {
-        case Errors::wrongCheckSum:
-            out<<"wrongCheckSum";
-            break;
-        case Errors::emptyStack:
-            out<<"emptyStack";
-            break;
-        case Errors::wrongCanaryStackData1:
-            out<<"wrongCanaryStackData1";
-            break;
-        case Errors::wrongCanaryStackData2:
-            out<<"wrongCanaryStackData2";
-            break;
-        case Errors::wrongCanaryBuff1:
-            out<<"wrongCanaryBuff1";
-            break;
-        case Errors::wrongCanaryBuff2:
-            out<<"wrongCanaryBuff2";
-            break;
-        case Errors::wrongCanaryCopy1:
-            out<<"wrongCanaryCopy1";
-            break;
-        case Errors::wrongCanaryCopy2:
-            out<<"wrongCanaryCopy2";
-            break;
-        case Errors::unequalBufferAndCopy:
-            out<<"unequalBufferAndCopy";
-            break;
-        case Errors::ok:
-            out<<"ok";
-            break;
-        default:
-            out<<"unknown error";
-            break;
-    }
+/**
+* @brief выводит ошибку error в out
+*/
+   std::ostream& operator<<(std::ostream& out, const Errors& error) {
+  switch (error) {
+    case Errors::wrongCheckSum:
+      out << "wrongCheckSum";
+      break;
+    case Errors::emptyStack:
+      out << "emptyStack";
+      break;
+    case Errors::wrongCanaryStackData1:
+      out << "wrongCanaryStackData1";
+      break;
+    case Errors::wrongCanaryStackData2:
+      out << "wrongCanaryStackData2";
+      break;
+    case Errors::wrongCanaryBuff1:
+      out << "wrongCanaryBuff1";
+      break;
+    case Errors::wrongCanaryBuff2:
+      out << "wrongCanaryBuff2";
+      break;
+    case Errors::wrongCanaryCopy1:
+      out << "wrongCanaryCopy1";
+      break;
+    case Errors::wrongCanaryCopy2:
+      out << "wrongCanaryCopy2";
+      break;
+    case Errors::unequalBufferAndCopy:
+      out << "unequalBufferAndCopy";
+      break;
+    case Errors::ok:
+      out << "ok";
+      break;
+    case Errors::notEqualCopiesOfRealSize:
+      out << "notEqualCopiesOfRealSize";
+      break;
+    case Errors::notEqualCopiesOfSize:
+      out << "notEqualCopiesOfReSize";
+      break;
+    default:
+      out << "unknown error";
+      break;
+  }
 }
 #endif
 
@@ -87,46 +96,53 @@ template <typename T>
 class Stack {
  public:
   Stack();
+
   ~Stack();
-  void push(const T& item);
+
+  void push(const T &item);
+
   void pop();
-  const T& top() const;
+
+  const T &top() const;
+
  private:
   StackData<T> data_;
+
   void resize();
 
-  #ifdef secureMode
+#ifdef secureMode
 
-    /**
-     * Считает контрольную сумму
-     */
-    size_t calcCheckSum() const;
+  /**
+   * Считает контрольную сумму
+   */
+  size_t calcCheckSum() const;
 
-    /**
-     *@brief проверяет целостность стека и его копии
-     */
-    Errors verify() const;
+  /**
+   *@brief проверяет целостность стека и его копии
+   */
+  Errors verify() const;
 
-    /**
-     * @brief выводит информацию о стеке, ошибку и место, где произошла ошибка
-     */
-    void dump(Errors error, const char* function) const;
-  #endif
+  /**
+   * @brief выводит информацию о стеке, ошибку и место, где произошла ошибка
+   */
+  void dump(Errors error, const char *function) const;
+
+#endif
 };
 
 template <typename T>
-Stack<T>::Stack()    {
+Stack<T>::Stack() {
 #ifdef secureMode
   size_t size = data_.size * sizeof(T) + 2 * sizeof(int);
-        data_.copyFull = new char[size]{0};
-        *((unsigned int*)(&data_.copyFull[0])) = 0xCACABEEB;
-        *((unsigned int*)(&data_.copyFull[size - sizeof(int)])) = 0xABBCACFD;
-        data_.bufferFull = new char[size]{0};
-        memcpy(data_.bufferFull,data_.copyFull, size);
-        data_.buffer = (T*)(data_.bufferFull + sizeof(int));
-        data_.copy = (T*)(data_.copyFull + sizeof(int));
+  data_.copyFull = new char[size]{0};
+  *((unsigned int *) (&data_.copyFull[0])) = 0xCACABEEB;
+  *((unsigned int *) (&data_.copyFull[size - sizeof(int)])) = 0xABBCACFD;
+  data_.bufferFull = new char[size]{0};
+  memcpy(data_.bufferFull, data_.copyFull, size);
+  data_.buffer = (T *) (data_.bufferFull + sizeof(int));
+  data_.copy = (T *) (data_.copyFull + sizeof(int));
 
-        data_.checkSum = calcCheckSum();
+  data_.checkSum = calcCheckSum();
 #else
   char* buff =  new char[data_.size * sizeof(T)]{0};
   data_.buffer = (T*) buff;
@@ -148,77 +164,92 @@ Stack<T>::~Stack() {
 
 #ifdef secureMode
 template <typename T>
-    Errors Stack<T>::verify() const {
-        if (data_.canary1 != 0xBEDABEDA) {
-            return Errors::wrongCanaryStackData1;
-        }
-        if (data_.canary2 != 0xDEADBEEF) {
-            return Errors::wrongCanaryStackData2;
-        }
-        if (*((int *) data_.bufferFull) != 0xCACABEEB) {
-            return Errors::wrongCanaryBuff1;
-        }
-        if (*((int *) &data_.bufferFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
-            return Errors::wrongCanaryBuff2;
-        }
-        if (*((int *) data_.copyFull) != 0xCACABEEB) {
-            return Errors::wrongCanaryCopy1;
-        }
-        if (*((int *) &data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
-            return Errors::wrongCanaryCopy2;
-        }
-        size_t checksum = calcCheckSum();
-        if (checksum != data_.checkSum) {
-            return Errors::wrongCheckSum;
-        }
+  Errors Stack<T>::verify() const {
+  if (data_.canary1 != 0xBEDABEDA) {
+    return Errors::wrongCanaryStackData1;
+  }
+  if (data_.canary2 != 0xDEADBEEF) {
+    return Errors::wrongCanaryStackData2;
+  }
 
-        if(memcmp(data_.bufferFull, data_.copyFull, data_.size * sizeof(T) + 2 * sizeof(int))) {
-            return Errors::unequalBufferAndCopy;
-        }
-        return Errors::ok;
-    }
+  size_t checksum = calcCheckSum();
+  if (checksum != data_.checkSum) {
+    return Errors::wrongCheckSum;
+  }
+
+  if (*((int *) data_.bufferFull) != 0xCACABEEB) {
+    return Errors::wrongCanaryBuff1;
+  }
+  if (*((int *) &data_.bufferFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
+    return Errors::wrongCanaryBuff2;
+  }
+  if (*((int *) data_.copyFull) != 0xCACABEEB) {
+    return Errors::wrongCanaryCopy1;
+  }
+  if (*((int *) &data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
+    return Errors::wrongCanaryCopy2;
+  }
+
+  if(data_.nextPosToWrite != data_.nextPosToWriteCopy) {
+    return Errors::notEqualCopiesOfSize;
+  }
+  if(data_.size != data_.sizeCopy) {
+    return Errors::notEqualCopiesOfRealSize;
+  }
+
+  if (memcmp(data_.bufferFull, data_.copyFull, data_.size * sizeof(T) + 2 * sizeof(int))) {
+    return Errors::unequalBufferAndCopy;
+  }
+  return Errors::ok;
+}
+
 #endif
 
 template <typename T>
 void Stack<T>::resize() {
-#ifdef secureMode
-  size_t oldSize = data_.size * sizeof(T) + 2 * sizeof(int);
-        size_t newSize = data_.size * sizeof(T) * 2 + 2 * sizeof(int);
-        char *tmpBuff = new char[newSize]{0};
-        char *tmpCopy = new char[newSize]{0};
-        memcpy(tmpBuff, data_.bufferFull, oldSize);
-        *((int *) &tmpBuff[oldSize - sizeof(int)]) = 0;
-        *((int *) &tmpBuff[newSize - sizeof(int)]) = 0xABBCACFD;
-        memcpy(tmpCopy, tmpBuff, newSize);
-        std::swap(tmpBuff, data_.bufferFull);
-        std::swap(tmpCopy, data_.copyFull);
-        data_.buffer = (T *) (data_.bufferFull + sizeof(int));
-        data_.copy = (T *) (data_.copyFull + sizeof(int));
+  #ifdef secureMode
+    size_t oldSize = data_.size * sizeof(T) + 2 * sizeof(int);
+    size_t newSize = data_.size * sizeof(T) * 2 + 2 * sizeof(int);
+    char *tmpBuff = new char[newSize]{0};
+    char *tmpCopy = new char[newSize]{0};
+    memcpy(tmpBuff, data_.bufferFull, oldSize);
+    *((int *) &tmpBuff[oldSize - sizeof(int)]) = 0;
+    *((int *) &tmpBuff[newSize - sizeof(int)]) = 0xABBCACFD;
+    memcpy(tmpCopy, tmpBuff, newSize);
+    std::swap(tmpBuff, data_.bufferFull);
+    std::swap(tmpCopy, data_.copyFull);
+    data_.buffer = (T*) (data_.bufferFull + sizeof(int));
+    data_.copy = (T*) (data_.copyFull + sizeof(int));
 
-        delete[] tmpBuff;
-        delete[] tmpCopy;
-#else
-  char *tmpBuff = new char[data_.size * sizeof(T) * 2]{0};
-  memcpy(tmpBuff, data_.buffer, data_.size * sizeof(T));
-  T* tmpBuffT = (T*) tmpBuff;
-  std::swap(tmpBuffT, data_.buffer);
-  delete[] tmpBuff;
+    delete[] tmpBuff;
+    delete[] tmpCopy;
+  #else
+    char *tmpBuff = new char[data_.size * sizeof(T) * 2]{0};
+    memcpy(tmpBuff, data_.buffer, data_.size * sizeof(T));
+    T* tmpBuffT = (T*) tmpBuff;
+    std::swap(tmpBuffT, data_.buffer);
+    delete[] tmpBuff;
 #endif
   data_.size *= 2;
 }
 
 template <typename T>
 void Stack<T>::push(const T &item) {
-#ifdef secureMode
-  Errors error = verify();
+  #ifdef secureMode
+    Errors error = verify();
         if (error != Errors::ok) {
             dump(error, "push");
         }
+  #endif
 
-        data_.copy[data_.nextPosToWrite] = item;
-#endif
+    data_.buffer[data_.nextPosToWrite] = item;
 
-  data_.buffer[data_.nextPosToWrite++] = item;
+  #ifdef secureMode
+    memcmp(&data_.copy[data_.nextPosToWrite], &data_.buffer[data_.nextPosToWrite], sizeof(T));
+    //data_.copy[data_.nextPosToWrite] = std::move(data_.buffer[data_.nextPosToWrite++]);
+
+  #endif
+  ++data_.nextPosToWrite;
   if (data_.size == data_.nextPosToWrite) {
     resize();
   }
@@ -263,42 +294,63 @@ void Stack<T>::pop() {
 #ifdef secureMode
 template <typename T>
     size_t Stack<T>::calcCheckSum() const {
-        size_t sum = 7;
-        std::hash<T> hasher;
-        for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
-            sum *= 3;
-            sum += hasher(data_.buffer[i]);
-            sum = sum % 6839465317;
-        }
-        return sum;
+  size_t sum = 7;
+  std::hash<T> hasher;
+  sum+= hasher(data_.nextPosToWrite) * hasher(data_.nextPosToWriteCopy);
+  sum*=2;
+  sum+= hasher(data_.sizeCopy) * hasher(data_.size);
+  sum*=2;
+  sum = sum % 6839465317;
+  sum+= hasher(reinterpret_cast<intptr_t>(data_.copy)) * hasher(reinterpret_cast<intptr_t>(data_.buffer));
+  sum*=5;
+  sum+= hasher(reinterpret_cast<intptr_t>(data_.copyFull)) * hasher(reinterpret_cast<intptr_t>(data_.bufferFull));
+  sum = sum % 6839465317;
+
+  for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
+    sum *= 3;
+    sum += hasher(data_.buffer[i]);
+    sum = sum % 6839465317;
+  }
+  return sum;
+}
+
+template <typename T>
+void Stack<T>::dump(Errors error, const char* function) const {
+  std::cerr << "\n*****************************************\n";
+
+  std::cerr << error << " occurred in function " << function << "\n";
+  std::cerr << "Stack this = " << this << "\n";
+  /*
+  std::cerr << "    canaryStack1 " << data_.canary1 << " expected " << 0xBEDABEDA << "\n";
+  std::cerr << "    canaryStack2 " << data_.canary2 << " expected " << 0xDEADBEEF << "\n";
+  std::cerr << "    canaryBuff1 " << *((unsigned int *) (&data_.bufferFull[0])) << " expected " << 0xCACABEEB
+            << "\n";
+  std::cerr << "    canaryBuff2 "
+            << *((unsigned int *) (&data_.bufferFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
+            << " expected " << 0xABBCACFD << "\n";
+  std::cerr << "    canaryCopy1 " << *((unsigned int *) (&data_.copyFull[0])) << " expected " << 0xCACABEEB << "\n";
+  std::cerr << "    canaryCopy2 "
+            << *((unsigned int *) (&data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
+            << " expected " << 0xABBCACFD << "\n";
+
+  std::cerr << "    real size " << data_.size << "\n";
+  std::cerr << "    size " << data_.nextPosToWrite << "\n";
+
+  std::cerr << "    checkSum " << data_.checkSum << " expected " << calcCheckSum() << "\n";
+
+  std::cerr << "    values of buffer, copy\n";
+  if (data_.nextPosToWriteCopy == data_.nextPosToWrite) {
+    for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
+      std::cerr << "        " << data_.buffer[i] << ", " << data_.copy[i] << "\n";
     }
+  } else {
+    std::cerr << "    value printing is unsafe because sizes are not matching\n";
+  }
+*/
+  std::cerr << "*****************************************\n";
 
-    template <typename T>
-    void Stack<T>::dump(Errors error, const char* function) const {
-        std::cerr<<"\n*****************************************\n";
-        std::cerr<<error <<" occurred in function "<< function<<"\n";
-        std::cerr<<"Stack this = "<< this <<"\n";
+  exit(0);
 
-        std::cerr<<"    canaryStack1 "<< data_.canary1 <<" expected " << 0xBEDABEDA<<"\n";
-        std::cerr<<"    canaryStack2 "<< data_.canary2 <<" expected " << 0xDEADBEEF<<"\n";
-        std::cerr<<"    canaryBuff1 "<< *((unsigned int *) (&data_.bufferFull[0])) <<" expected " << 0xCACABEEB<<"\n";
-        std::cerr<<"    canaryBuff2 "<< *((unsigned int*)(&data_.bufferFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)])) <<" expected " << 0xABBCACFD<<"\n";
-        std::cerr<<"    canaryCopy1 "<< *((unsigned int *) (&data_.copyFull[0])) <<" expected " << 0xCACABEEB<<"\n";
-        std::cerr<<"    canaryCopy2 "<< *((unsigned int*)(&data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)])) <<" expected " << 0xABBCACFD<<"\n";
-
-        std::cerr<<"    actual size " << data_.size<<"\n";
-        std::cerr<<"    size " << data_.nextPosToWrite<<"\n";
-
-        std::cerr<<"    checkSum " << data_.checkSum << " expected " << calcCheckSum()<< "\n";
-
-        std::cerr<<"    values of buffer, copy\n";
-        for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
-            std::cerr<<"        "<<data_.buffer[i]<<", "<<data_.copy[i]<<"\n";
-        }
-
-        std::cerr<<"*****************************************\n";
-
-        exit(0);
-    }
+}
 
 #endif
