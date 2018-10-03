@@ -24,8 +24,6 @@ struct StackData {
     char *bufferFull;
     char *copyFull;
     size_t checkSum{7};
-    int nextPosToWriteCopy{0};
-    int sizeCopy{1};
     unsigned int canary2{0xDEADBEEF};
   #endif
 };
@@ -74,12 +72,6 @@ struct StackData {
       break;
     case Errors::ok:
       out << "ok";
-      break;
-    case Errors::notEqualCopiesOfRealSize:
-      out << "notEqualCopiesOfRealSize";
-      break;
-    case Errors::notEqualCopiesOfSize:
-      out << "notEqualCopiesOfReSize";
       break;
     default:
       out << "unknown error";
@@ -189,14 +181,7 @@ template <typename T>
   if (*((int *) &data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
     return Errors::wrongCanaryCopy2;
   }
-
-  if(data_.nextPosToWrite != data_.nextPosToWriteCopy) {
-    return Errors::notEqualCopiesOfSize;
-  }
-  if(data_.size != data_.sizeCopy) {
-    return Errors::notEqualCopiesOfRealSize;
-  }
-
+  
   if (memcmp(data_.bufferFull, data_.copyFull, data_.size * sizeof(T) + 2 * sizeof(int))) {
     return Errors::unequalBufferAndCopy;
   }
@@ -296,14 +281,15 @@ template <typename T>
     size_t Stack<T>::calcCheckSum() const {
   size_t sum = 7;
   std::hash<T> hasher;
-  sum+= hasher(data_.nextPosToWrite) * hasher(data_.nextPosToWriteCopy);
+  std::hash<int> hasherI;
+  sum+= hasherI(data_.nextPosToWrite);
   sum*=2;
-  sum+= hasher(data_.sizeCopy) * hasher(data_.size);
+  sum+= hasherI(data_.size);
   sum*=2;
   sum = sum % 6839465317;
-  sum+= hasher(reinterpret_cast<intptr_t>(data_.copy)) * hasher(reinterpret_cast<intptr_t>(data_.buffer));
+  sum+= hasherI(reinterpret_cast<intptr_t>(data_.copy)) * hasherI(reinterpret_cast<intptr_t>(data_.buffer));
   sum*=5;
-  sum+= hasher(reinterpret_cast<intptr_t>(data_.copyFull)) * hasher(reinterpret_cast<intptr_t>(data_.bufferFull));
+  sum+= hasherI(reinterpret_cast<intptr_t>(data_.copyFull)) * hasherI(reinterpret_cast<intptr_t>(data_.bufferFull));
   sum = sum % 6839465317;
 
   for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
@@ -339,13 +325,11 @@ void Stack<T>::dump(Errors error, const char* function) const {
   std::cerr << "    checkSum " << data_.checkSum << " expected " << calcCheckSum() << "\n";
 
   std::cerr << "    values of buffer, copy\n";
-  if (data_.nextPosToWriteCopy == data_.nextPosToWrite) {
+
     for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
       std::cerr << "        " << data_.buffer[i] << ", " << data_.copy[i] << "\n";
     }
-  } else {
-    std::cerr << "    value printing is unsafe because sizes are not matching\n";
-  }
+
 */
   std::cerr << "*****************************************\n";
 
