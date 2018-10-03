@@ -11,14 +11,14 @@ int main() {
   char path[] = "text.txt";
 
   size_t size = getFileSize(path);
-  char *text = new char[size + 1];
+  char *text = new char[size + 1]{0};
 
   readFile(path, text, size);
   text[size + 1] = '\n';
 
   int lineCount = countLinesAndModify(text, size + 1);
-  char **originLinesOfText = new char *[lineCount];
-  char **linesOfText = new char *[lineCount];
+  char **originLinesOfText = new char *[lineCount]{0};
+  char **linesOfText = new char *[lineCount]{0};
   setLines(text, linesOfText, size + 1);
   for (int i = 0; i < lineCount; ++i) {
     originLinesOfText[i] = linesOfText[i];
