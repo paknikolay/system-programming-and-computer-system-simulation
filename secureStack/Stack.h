@@ -1,5 +1,5 @@
 #pragma once
-#define secureMode
+#define SECUREMODE SECUREMODE
 
 #include <functional>
 #include <cstring>
@@ -11,27 +11,27 @@
  */
 template <typename T>
 struct StackData {
-  #ifdef secureMode
-    unsigned int canary1{0xBEDABEDA};
-  #endif
+#ifdef SECUREMODE
+  unsigned int canary1{0xBEDABEDA};
+#endif
 
   T *buffer;
   int nextPosToWrite{0};
   int size{1};
 
-  #ifdef secureMode
-    T *copy;
-    char *bufferFull;
-    char *copyFull;
-    size_t checkSum{7};
-    unsigned int canary2{0xDEADBEEF};
-  #endif
+#ifdef SECUREMODE
+  T *copy;
+  char *bufferFull;
+  char *copyFull;
+  size_t checkSum{7};
+  unsigned int canary2{0xDEADBEEF};
+#endif
 };
 
 /**
  * @brief содержит виды ошибок
  */
-#ifdef secureMode
+#ifdef SECUREMODE
   enum class Errors {
     ok, emptyStack, wrongCheckSum, wrongCanaryStackData1, wrongCanaryStackData2,
     wrongCanaryBuff1, wrongCanaryBuff2, unequalBufferAndCopy, wrongCanaryCopy1, wrongCanaryCopy2,
@@ -41,7 +41,7 @@ struct StackData {
 /**
 * @brief выводит ошибку error в out
 */
-   std::ostream& operator<<(std::ostream& out, const Errors& error) {
+std::ostream& operator<<(std::ostream& out, const Errors& error) {
   switch (error) {
     case Errors::wrongCheckSum:
       out << "wrongCheckSum";
@@ -102,7 +102,7 @@ class Stack {
 
   void resize();
 
-#ifdef secureMode
+#ifdef SECUREMODE
 
   /**
    * Считает контрольную сумму
@@ -124,7 +124,7 @@ class Stack {
 
 template <typename T>
 Stack<T>::Stack() {
-#ifdef secureMode
+#ifdef SECUREMODE
   size_t size = data_.size * sizeof(T) + 2 * sizeof(int);
   data_.copyFull = new char[size]{0};
   *((unsigned int *) (&data_.copyFull[0])) = 0xCACABEEB;
@@ -143,18 +143,18 @@ Stack<T>::Stack() {
 
 template <typename T>
 Stack<T>::~Stack() {
-#ifdef secureMode
+#ifdef SECUREMODE
   Errors error = verify();
 
-        delete[] data_.copyFull;
-        delete[] data_.bufferFull;
+  delete[] data_.copyFull;
+  delete[] data_.bufferFull;
 #else
   char * buf = (char*)data_.buffer;
   delete[] buf;
 #endif
 }
 
-#ifdef secureMode
+#ifdef SECUREMODE
 template <typename T>
   Errors Stack<T>::verify() const {
   if (data_.canary1 != 0xBEDABEDA) {
@@ -193,7 +193,7 @@ template <typename T>
 
 template <typename T>
 void Stack<T>::resize() {
-#ifdef secureMode
+#ifdef SECUREMODE
   size_t oldSize = data_.size * sizeof(T) + 2 * sizeof(int);
   size_t newSize = data_.size * sizeof(T) * 2 + 2 * sizeof(int);
   char *tmpBuff = new char[newSize]{0};
@@ -221,32 +221,32 @@ void Stack<T>::resize() {
 
 template <typename T>
 void Stack<T>::push(const T &item) {
-  #ifdef secureMode
-    Errors error = verify();
-        if (error != Errors::ok) {
-            dump(error, "push");
-        }
-  #endif
+#ifdef SECUREMODE
+  Errors error = verify();
+  if (error != Errors::ok) {
+    dump(error, "push");
+  }
+#endif
 
-    data_.buffer[data_.nextPosToWrite] = item;
+  data_.buffer[data_.nextPosToWrite] = item;
 
-  #ifdef secureMode
-    memcmp(&data_.copy[data_.nextPosToWrite], &data_.buffer[data_.nextPosToWrite], sizeof(T));
-    //data_.copy[data_.nextPosToWrite] = std::move(data_.buffer[data_.nextPosToWrite++]);
+#ifdef SECUREMODE
+  memcmp(&data_.copy[data_.nextPosToWrite], &data_.buffer[data_.nextPosToWrite], sizeof(T));
+  //data_.copy[data_.nextPosToWrite] = std::move(data_.buffer[data_.nextPosToWrite++]);
 
-  #endif
+#endif
   ++data_.nextPosToWrite;
   if (data_.size == data_.nextPosToWrite) {
     resize();
   }
-#ifdef secureMode
+#ifdef SECUREMODE
   data_.checkSum = calcCheckSum();
 #endif
 }
 
 template <typename T>
 const T& Stack<T>::top() const{
-#ifdef secureMode
+#ifdef SECUREMODE
   Errors error = verify();
         if (error != Errors::ok) {
             dump(error, "top");
@@ -261,7 +261,7 @@ const T& Stack<T>::top() const{
 
 template <typename T>
 void Stack<T>::pop() {
-#ifdef secureMode
+#ifdef SECUREMODE
   Errors error = verify();
         if (error != Errors::ok) {
             dump(error, "pop");
@@ -272,12 +272,12 @@ void Stack<T>::pop() {
 #endif
 
   --data_.nextPosToWrite;
-#ifdef secureMode
+#ifdef SECUREMODE
   data_.checkSum = calcCheckSum();
 #endif
 }
 
-#ifdef secureMode
+#ifdef SECUREMODE
 template <typename T>
     size_t Stack<T>::calcCheckSum() const {
   size_t sum = 7;
