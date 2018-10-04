@@ -178,6 +178,7 @@ template <typename T>
   if (*((int *) data_.copyFull) != 0xCACABEEB) {
     return Errors::wrongCanaryCopy1;
   }
+
   if (*((int *) &data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
     return Errors::wrongCanaryCopy2;
   }
@@ -192,28 +193,28 @@ template <typename T>
 
 template <typename T>
 void Stack<T>::resize() {
-  #ifdef secureMode
-    size_t oldSize = data_.size * sizeof(T) + 2 * sizeof(int);
-    size_t newSize = data_.size * sizeof(T) * 2 + 2 * sizeof(int);
-    char *tmpBuff = new char[newSize]{0};
-    char *tmpCopy = new char[newSize]{0};
-    memcpy(tmpBuff, data_.bufferFull, oldSize);
-    *((int *) &tmpBuff[oldSize - sizeof(int)]) = 0;
-    *((int *) &tmpBuff[newSize - sizeof(int)]) = 0xABBCACFD;
-    memcpy(tmpCopy, tmpBuff, newSize);
-    std::swap(tmpBuff, data_.bufferFull);
-    std::swap(tmpCopy, data_.copyFull);
-    data_.buffer = (T*) (data_.bufferFull + sizeof(int));
-    data_.copy = (T*) (data_.copyFull + sizeof(int));
+#ifdef secureMode
+  size_t oldSize = data_.size * sizeof(T) + 2 * sizeof(int);
+  size_t newSize = data_.size * sizeof(T) * 2 + 2 * sizeof(int);
+  char *tmpBuff = new char[newSize]{0};
+  char *tmpCopy = new char[newSize]{0};
+  memcpy(tmpBuff, data_.bufferFull, oldSize);
+  *((int *) &tmpBuff[oldSize - sizeof(int)]) = 0;
+  *((int *) &tmpBuff[newSize - sizeof(int)]) = 0xABBCACFD;
+  memcpy(tmpCopy, tmpBuff, newSize);
+  std::swap(tmpBuff, data_.bufferFull);
+  std::swap(tmpCopy, data_.copyFull);
+  data_.buffer = (T *) (data_.bufferFull + sizeof(int));
+  data_.copy = (T *) (data_.copyFull + sizeof(int));
 
-    delete[] tmpBuff;
-    delete[] tmpCopy;
-  #else
-    char *tmpBuff = new char[data_.size * sizeof(T) * 2]{0};
-    memcpy(tmpBuff, data_.buffer, data_.size * sizeof(T));
-    T* tmpBuffT = (T*) tmpBuff;
-    std::swap(tmpBuffT, data_.buffer);
-    delete[] tmpBuff;
+  delete[] tmpBuff;
+  delete[] tmpCopy;
+#else
+  char *tmpBuff = new char[data_.size * sizeof(T) * 2]{0};
+  memcpy(tmpBuff, data_.buffer, data_.size * sizeof(T));
+  T* tmpBuffT = (T*) tmpBuff;
+  std::swap(tmpBuffT, data_.buffer);
+  delete[] tmpBuff;
 #endif
   data_.size *= 2;
 }
@@ -306,7 +307,7 @@ void Stack<T>::dump(Errors error, const char* function) const {
 
   std::cerr << error << " occurred in function " << function << "\n";
   std::cerr << "Stack this = " << this << "\n";
-  /*
+
   std::cerr << "    canaryStack1 " << data_.canary1 << " expected " << 0xBEDABEDA << "\n";
   std::cerr << "    canaryStack2 " << data_.canary2 << " expected " << 0xDEADBEEF << "\n";
   std::cerr << "    canaryBuff1 " << *((unsigned int *) (&data_.bufferFull[0])) << " expected " << 0xCACABEEB
@@ -330,7 +331,7 @@ void Stack<T>::dump(Errors error, const char* function) const {
       std::cerr << "        " << data_.buffer[i] << ", " << data_.copy[i] << "\n";
     }
 
-*/
+
   std::cerr << "*****************************************\n";
 
   exit(0);
