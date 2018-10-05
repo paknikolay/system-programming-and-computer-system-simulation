@@ -1,9 +1,16 @@
 #pragma once
-#define SECUREMODE SECUREMODE
 
 #include <functional>
 #include <cstring>
 #include <iostream>
+
+#define SECURE_MODE
+#define CANARY_BUFFER1 0xCACABEEB
+#define CANARY_BUFFER2 0xABBCACFD
+#define CANARY1 0xBEDABEDA
+#define CANARY2 0xDEADBEEF
+#define MOD 6839465317
+
 
 /**
  * @brief contains stack data
@@ -11,31 +18,31 @@
  */
 template <typename T>
 struct StackData {
-#ifdef SECUREMODE
-  unsigned int canary1{0xBEDABEDA};
+#ifdef SECURE_MODE
+  unsigned int canary1{CANARY1};
 #endif
 
   T *buffer;
   int nextPosToWrite{0};
   int size{1};
 
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   T *copy;
   char *bufferFull;
   char *copyFull;
   size_t checkSum{7};
-  unsigned int canary2{0xDEADBEEF};
+  unsigned int canary2{CANARY2};
 #endif
 };
 
 /**
  * @brief содержит виды ошибок
  */
-#ifdef SECUREMODE
-  enum class Errors {
-    ok, emptyStack, wrongCheckSum, wrongCanaryStackData1, wrongCanaryStackData2,
-    wrongCanaryBuff1, wrongCanaryBuff2, unequalBufferAndCopy, wrongCanaryCopy1, wrongCanaryCopy2,
-    notEqualCopiesOfRealSize, notEqualCopiesOfSize
+#ifdef SECURE_MODE
+enum class Errors {
+  ok, emptyStack, wrongCheckSum, wrongCanaryStackData1, wrongCanaryStackData2,
+  wrongCanaryBuff1, wrongCanaryBuff2, unequalBufferAndCopy, wrongCanaryCopy1, wrongCanaryCopy2,
+  notEqualCopiesOfRealSize, notEqualCopiesOfSize
 };
 
 /**
@@ -102,7 +109,7 @@ class Stack {
 
   void resize();
 
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
 
   /**
    * Считает контрольную сумму
@@ -124,11 +131,11 @@ class Stack {
 
 template <typename T>
 Stack<T>::Stack() {
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   size_t size = data_.size * sizeof(T) + 2 * sizeof(int);
   data_.copyFull = new char[size]{0};
-  *((unsigned int *) (&data_.copyFull[0])) = 0xCACABEEB;
-  *((unsigned int *) (&data_.copyFull[size - sizeof(int)])) = 0xABBCACFD;
+  *((unsigned int *) (&data_.copyFull[0])) = CANARY_BUFFER1;
+  *((unsigned int *) (&data_.copyFull[size - sizeof(int)])) = CANARY_BUFFER2;
   data_.bufferFull = new char[size]{0};
   memcpy(data_.bufferFull, data_.copyFull, size);
   data_.buffer = (T *) (data_.bufferFull + sizeof(int));
@@ -143,7 +150,7 @@ Stack<T>::Stack() {
 
 template <typename T>
 Stack<T>::~Stack() {
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   Errors error = verify();
 
   delete[] data_.copyFull;
@@ -154,13 +161,13 @@ Stack<T>::~Stack() {
 #endif
 }
 
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
 template <typename T>
   Errors Stack<T>::verify() const {
-  if (data_.canary1 != 0xBEDABEDA) {
+  if (data_.canary1 != CANARY1) {
     return Errors::wrongCanaryStackData1;
   }
-  if (data_.canary2 != 0xDEADBEEF) {
+  if (data_.canary2 != CANARY2) {
     return Errors::wrongCanaryStackData2;
   }
 
@@ -169,20 +176,22 @@ template <typename T>
     return Errors::wrongCheckSum;
   }
 
-  if (*((int *) data_.bufferFull) != 0xCACABEEB) {
+  if (*((int *) data_.bufferFull) != CANARY_BUFFER1) {
     return Errors::wrongCanaryBuff1;
   }
-  if (*((int *) &data_.bufferFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
+
+  size_t canary2Addr = data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int);
+  if (*((int *) &data_.bufferFull[canary2Addr]) != CANARY_BUFFER2) {
     return Errors::wrongCanaryBuff2;
   }
-  if (*((int *) data_.copyFull) != 0xCACABEEB) {
+  if (*((int *) data_.copyFull) != CANARY_BUFFER1) {
     return Errors::wrongCanaryCopy1;
   }
 
-  if (*((int *) &data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != 0xABBCACFD) {
+  if (*((int *) &data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != CANARY_BUFFER2) {
     return Errors::wrongCanaryCopy2;
   }
-  
+
   if (memcmp(data_.bufferFull, data_.copyFull, data_.size * sizeof(T) + 2 * sizeof(int))) {
     return Errors::unequalBufferAndCopy;
   }
@@ -193,14 +202,14 @@ template <typename T>
 
 template <typename T>
 void Stack<T>::resize() {
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   size_t oldSize = data_.size * sizeof(T) + 2 * sizeof(int);
   size_t newSize = data_.size * sizeof(T) * 2 + 2 * sizeof(int);
   char *tmpBuff = new char[newSize]{0};
   char *tmpCopy = new char[newSize]{0};
   memcpy(tmpBuff, data_.bufferFull, oldSize);
   *((int *) &tmpBuff[oldSize - sizeof(int)]) = 0;
-  *((int *) &tmpBuff[newSize - sizeof(int)]) = 0xABBCACFD;
+  *((int *) &tmpBuff[newSize - sizeof(int)]) = CANARY_BUFFER2;
   memcpy(tmpCopy, tmpBuff, newSize);
   std::swap(tmpBuff, data_.bufferFull);
   std::swap(tmpCopy, data_.copyFull);
@@ -221,7 +230,7 @@ void Stack<T>::resize() {
 
 template <typename T>
 void Stack<T>::push(const T &item) {
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   Errors error = verify();
   if (error != Errors::ok) {
     dump(error, "push");
@@ -230,74 +239,76 @@ void Stack<T>::push(const T &item) {
 
   data_.buffer[data_.nextPosToWrite] = item;
 
-#ifdef SECUREMODE
-  memcmp(&data_.copy[data_.nextPosToWrite], &data_.buffer[data_.nextPosToWrite], sizeof(T));
-  //data_.copy[data_.nextPosToWrite] = std::move(data_.buffer[data_.nextPosToWrite++]);
-
+#ifdef SECURE_MODE
+  memcpy(&data_.copy[data_.nextPosToWrite], &data_.buffer[data_.nextPosToWrite], sizeof(T));
 #endif
+
   ++data_.nextPosToWrite;
   if (data_.size == data_.nextPosToWrite) {
     resize();
   }
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   data_.checkSum = calcCheckSum();
 #endif
 }
 
 template <typename T>
-const T& Stack<T>::top() const{
-#ifdef SECUREMODE
+const T& Stack<T>::top() const {
+#ifdef SECURE_MODE
   Errors error = verify();
-        if (error != Errors::ok) {
-            dump(error, "top");
-        }
+  if (error != Errors::ok) {
+    dump(error, "top");
+  }
 
-        if(data_.nextPosToWrite == 0){
-            dump(Errors::emptyStack, "top");
-        }
+  if (data_.nextPosToWrite == 0) {
+    dump(Errors::emptyStack, "top");
+  }
 #endif
   return data_.buffer[data_.nextPosToWrite - 1];
 }
 
 template <typename T>
 void Stack<T>::pop() {
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   Errors error = verify();
-        if (error != Errors::ok) {
-            dump(error, "pop");
-        }
-        if(data_.nextPosToWrite == 0){
-            dump(Errors::emptyStack, "pop");
-        }
+  if (error != Errors::ok) {
+    dump(error, "pop");
+  }
+  if (data_.nextPosToWrite == 0) {
+    dump(Errors::emptyStack, "pop");
+  }
 #endif
 
   --data_.nextPosToWrite;
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
   data_.checkSum = calcCheckSum();
 #endif
 }
 
-#ifdef SECUREMODE
+#ifdef SECURE_MODE
 template <typename T>
     size_t Stack<T>::calcCheckSum() const {
   size_t sum = 7;
+
   std::hash<T> hasher;
   std::hash<int> hasherI;
-  sum+= hasherI(data_.nextPosToWrite);
-  sum*=2;
-  sum+= hasherI(data_.size);
-  sum*=2;
-  sum = sum % 6839465317;
-  sum+= hasherI(reinterpret_cast<intptr_t>(data_.copy)) * hasherI(reinterpret_cast<intptr_t>(data_.buffer));
-  sum*=5;
-  sum+= hasherI(reinterpret_cast<intptr_t>(data_.copyFull)) * hasherI(reinterpret_cast<intptr_t>(data_.bufferFull));
-  sum = sum % 6839465317;
+
+  sum += hasherI(data_.nextPosToWrite);
+  sum *= 2;
+  sum += hasherI(data_.size);
+  sum *= 2;
+  sum = sum % MOD;
+  sum += hasherI(reinterpret_cast<intptr_t>(data_.copy)) * hasherI(reinterpret_cast<intptr_t>(data_.buffer));
+  sum *= 5;
+  sum += hasherI(reinterpret_cast<intptr_t>(data_.copyFull)) * hasherI(reinterpret_cast<intptr_t>(data_.bufferFull));
+  sum = sum % MOD;
 
   for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
     sum *= 3;
     sum += hasher(data_.buffer[i]);
-    sum = sum % 6839465317;
+    sum = sum % MOD;
   }
+
   return sum;
 }
 
@@ -308,17 +319,21 @@ void Stack<T>::dump(Errors error, const char* function) const {
   std::cerr << error << " occurred in function " << function << "\n";
   std::cerr << "Stack this = " << this << "\n";
 
-  std::cerr << "    canaryStack1 " << data_.canary1 << " expected " << 0xBEDABEDA << "\n";
-  std::cerr << "    canaryStack2 " << data_.canary2 << " expected " << 0xDEADBEEF << "\n";
-  std::cerr << "    canaryBuff1 " << *((unsigned int *) (&data_.bufferFull[0])) << " expected " << 0xCACABEEB
+  std::cerr.hex;
+
+  std::cerr << "    canaryStack1 " << data_.canary1 << " expected " << CANARY1 << "\n";
+  std::cerr << "    canaryStack2 " << data_.canary2 << " expected " << CANARY2 << "\n";
+  std::cerr << "    canaryBuff1 " << *((unsigned int *) (&data_.bufferFull[0])) << " expected " << CANARY_BUFFER1
             << "\n";
   std::cerr << "    canaryBuff2 "
             << *((unsigned int *) (&data_.bufferFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
-            << " expected " << 0xABBCACFD << "\n";
-  std::cerr << "    canaryCopy1 " << *((unsigned int *) (&data_.copyFull[0])) << " expected " << 0xCACABEEB << "\n";
+            << " expected " << CANARY_BUFFER2 << "\n";
+  std::cerr << "    canaryCopy1 " << *((unsigned int *) (&data_.copyFull[0])) << " expected " << CANARY_BUFFER1 << "\n";
   std::cerr << "    canaryCopy2 "
             << *((unsigned int *) (&data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
-            << " expected " << 0xABBCACFD << "\n";
+            << " expected " << CANARY_BUFFER2 << "\n";
+
+  std::cerr.dec;
 
   std::cerr << "    real size " << data_.size << "\n";
   std::cerr << "    size " << data_.nextPosToWrite << "\n";
@@ -327,15 +342,14 @@ void Stack<T>::dump(Errors error, const char* function) const {
 
   std::cerr << "    values of buffer, copy\n";
 
-    for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
-      std::cerr << "        " << data_.buffer[i] << ", " << data_.copy[i] << "\n";
-    }
+  for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
+    std::cerr << "        " << data_.buffer[i] << ", " << data_.copy[i] << "\n";
+  }
 
 
   std::cerr << "*****************************************\n";
 
   exit(0);
-
 }
 
 #endif
