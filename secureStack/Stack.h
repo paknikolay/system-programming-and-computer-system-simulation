@@ -23,8 +23,8 @@ struct StackData {
 #endif
 
   T *buffer;
-  int nextPosToWrite{0};
-  int size{1};
+  int size{0};
+  int capacity{1};
 
 #ifdef SECURE_MODE
   T *copy;
@@ -132,7 +132,7 @@ class Stack {
 template <typename T>
 Stack<T>::Stack() {
 #ifdef SECURE_MODE
-  size_t size = data_.size * sizeof(T) + 2 * sizeof(int);
+  size_t size = data_.capacity * sizeof(T) + 2 * sizeof(int);
   data_.copyFull = new char[size]{0};
   *((unsigned int *) (&data_.copyFull[0])) = CANARY_BUFFER1;
   *((unsigned int *) (&data_.copyFull[size - sizeof(int)])) = CANARY_BUFFER2;
@@ -143,7 +143,7 @@ Stack<T>::Stack() {
 
   data_.checkSum = calcCheckSum();
 #else
-  char* buff =  new char[data_.size * sizeof(T)]{0};
+  char* buff =  new char[data_.capacity * sizeof(T)]{0};
   data_.buffer = (T*) buff;
 #endif
 }
@@ -180,7 +180,7 @@ template <typename T>
     return Errors::wrongCanaryBuff1;
   }
 
-  size_t canary2Addr = data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int);
+  size_t canary2Addr = data_.capacity * sizeof(T) + 2 * sizeof(int) - sizeof(int);
   if (*((int *) &data_.bufferFull[canary2Addr]) != CANARY_BUFFER2) {
     return Errors::wrongCanaryBuff2;
   }
@@ -188,11 +188,11 @@ template <typename T>
     return Errors::wrongCanaryCopy1;
   }
 
-  if (*((int *) &data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != CANARY_BUFFER2) {
+  if (*((int *) &data_.copyFull[data_.capacity * sizeof(T) + 2 * sizeof(int) - sizeof(int)]) != CANARY_BUFFER2) {
     return Errors::wrongCanaryCopy2;
   }
 
-  if (memcmp(data_.bufferFull, data_.copyFull, data_.size * sizeof(T) + 2 * sizeof(int))) {
+  if (memcmp(data_.bufferFull, data_.copyFull, data_.capacity * sizeof(T) + 2 * sizeof(int))) {
     return Errors::unequalBufferAndCopy;
   }
   return Errors::ok;
@@ -203,8 +203,8 @@ template <typename T>
 template <typename T>
 void Stack<T>::resize() {
 #ifdef SECURE_MODE
-  size_t oldSize = data_.size * sizeof(T) + 2 * sizeof(int);
-  size_t newSize = data_.size * sizeof(T) * 2 + 2 * sizeof(int);
+  size_t oldSize = data_.capacity * sizeof(T) + 2 * sizeof(int);
+  size_t newSize = data_.capacity * sizeof(T) * 2 + 2 * sizeof(int);
   char *tmpBuff = new char[newSize]{0};
   char *tmpCopy = new char[newSize]{0};
   memcpy(tmpBuff, data_.bufferFull, oldSize);
@@ -219,13 +219,13 @@ void Stack<T>::resize() {
   delete[] tmpBuff;
   delete[] tmpCopy;
 #else
-  char *tmpBuff = new char[data_.size * sizeof(T) * 2]{0};
-  memcpy(tmpBuff, data_.buffer, data_.size * sizeof(T));
+  char *tmpBuff = new char[data_.capacity * sizeof(T) * 2]{0};
+  memcpy(tmpBuff, data_.buffer, data_.capacity * sizeof(T));
   T* tmpBuffT = (T*) tmpBuff;
   std::swap(tmpBuffT, data_.buffer);
   delete[] tmpBuff;
 #endif
-  data_.size *= 2;
+  data_.capacity *= 2;
 }
 
 template <typename T>
@@ -237,14 +237,14 @@ void Stack<T>::push(const T &item) {
   }
 #endif
 
-  data_.buffer[data_.nextPosToWrite] = item;
+  data_.buffer[data_.size] = item;
 
 #ifdef SECURE_MODE
-  memcpy(&data_.copy[data_.nextPosToWrite], &data_.buffer[data_.nextPosToWrite], sizeof(T));
+  memcpy(&data_.copy[data_.size], &data_.buffer[data_.size], sizeof(T));
 #endif
 
-  ++data_.nextPosToWrite;
-  if (data_.size == data_.nextPosToWrite) {
+  ++data_.size;
+  if (data_.capacity == data_.size) {
     resize();
   }
 #ifdef SECURE_MODE
@@ -260,11 +260,11 @@ const T& Stack<T>::top() const {
     dump(error, "top");
   }
 
-  if (data_.nextPosToWrite == 0) {
+  if (data_.size == 0) {
     dump(Errors::emptyStack, "top");
   }
 #endif
-  return data_.buffer[data_.nextPosToWrite - 1];
+  return data_.buffer[data_.size - 1];
 }
 
 template <typename T>
@@ -274,12 +274,12 @@ void Stack<T>::pop() {
   if (error != Errors::ok) {
     dump(error, "pop");
   }
-  if (data_.nextPosToWrite == 0) {
+  if (data_.size == 0) {
     dump(Errors::emptyStack, "pop");
   }
 #endif
 
-  --data_.nextPosToWrite;
+  --data_.size;
 #ifdef SECURE_MODE
   data_.checkSum = calcCheckSum();
 #endif
@@ -287,15 +287,15 @@ void Stack<T>::pop() {
 
 #ifdef SECURE_MODE
 template <typename T>
-    size_t Stack<T>::calcCheckSum() const {
+size_t Stack<T>::calcCheckSum() const {
   size_t sum = 7;
 
   std::hash<T> hasher;
   std::hash<int> hasherI;
 
-  sum += hasherI(data_.nextPosToWrite);
-  sum *= 2;
   sum += hasherI(data_.size);
+  sum *= 2;
+  sum += hasherI(data_.capacity);
   sum *= 2;
   sum = sum % MOD;
   sum += hasherI(reinterpret_cast<intptr_t>(data_.copy)) * hasherI(reinterpret_cast<intptr_t>(data_.buffer));
@@ -303,7 +303,7 @@ template <typename T>
   sum += hasherI(reinterpret_cast<intptr_t>(data_.copyFull)) * hasherI(reinterpret_cast<intptr_t>(data_.bufferFull));
   sum = sum % MOD;
 
-  for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
+  for (size_t i = 0; i < data_.size; ++i) {
     sum *= 3;
     sum += hasher(data_.buffer[i]);
     sum = sum % MOD;
@@ -319,30 +319,30 @@ void Stack<T>::dump(Errors error, const char* function) const {
   std::cerr << error << " occurred in function " << function << "\n";
   std::cerr << "Stack this = " << this << "\n";
 
-  std::cerr.hex;
+  std::cerr<<std::hex;
 
-  std::cerr << "    canaryStack1 " << data_.canary1 << " expected " << CANARY1 << "\n";
+  std::cerr << "    canaryStack1 "<< data_.canary1 << " expected " << CANARY1 << "\n";
   std::cerr << "    canaryStack2 " << data_.canary2 << " expected " << CANARY2 << "\n";
   std::cerr << "    canaryBuff1 " << *((unsigned int *) (&data_.bufferFull[0])) << " expected " << CANARY_BUFFER1
             << "\n";
   std::cerr << "    canaryBuff2 "
-            << *((unsigned int *) (&data_.bufferFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
+            << *((unsigned int *) (&data_.bufferFull[data_.capacity * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
             << " expected " << CANARY_BUFFER2 << "\n";
   std::cerr << "    canaryCopy1 " << *((unsigned int *) (&data_.copyFull[0])) << " expected " << CANARY_BUFFER1 << "\n";
   std::cerr << "    canaryCopy2 "
-            << *((unsigned int *) (&data_.copyFull[data_.size * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
+            << *((unsigned int *) (&data_.copyFull[data_.capacity * sizeof(T) + 2 * sizeof(int) - sizeof(int)]))
             << " expected " << CANARY_BUFFER2 << "\n";
 
-  std::cerr.dec;
+  std::cerr<<std::dec;
 
-  std::cerr << "    real size " << data_.size << "\n";
-  std::cerr << "    size " << data_.nextPosToWrite << "\n";
+  std::cerr << "    capacity " << data_.capacity << "\n";
+  std::cerr << "    size " << data_.size << "\n";
 
   std::cerr << "    checkSum " << data_.checkSum << " expected " << calcCheckSum() << "\n";
 
   std::cerr << "    values of buffer, copy\n";
 
-  for (size_t i = 0; i < data_.nextPosToWrite; ++i) {
+  for (size_t i = 0; i < data_.size; ++i) {
     std::cerr << "        " << data_.buffer[i] << ", " << data_.copy[i] << "\n";
   }
 
